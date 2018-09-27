@@ -1,0 +1,4 @@
+{
+  "docker_daemon_socket": "/var/run/docker.sock",
+  "endpoint": "0.0.0.0:1234"
+}
