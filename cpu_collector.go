@@ -35,14 +35,14 @@ func (cs *cpuStatCollector) Collect(ch chan<- prometheus.Metric) {
 		wg.Add(1)
 		go func(c container) {
 			defer wg.Done()
-			loadMetric(c, cs.desc, ch)
+			loadMetric(c, c.CPUStatsPath, cs.desc, ch)
 		}(c)
 	}
 	wg.Wait()
 }
 
-func loadMetric(c container, desc *prometheus.Desc, ch chan<- prometheus.Metric) {
-	for _, filePath := range c.CPUStatsPath {
+func loadMetric(c container, files []string, desc *prometheus.Desc, ch chan<- prometheus.Metric) {
+	for _, filePath := range files {
 		file, err := os.Open(filePath)
 		if err != nil {
 			log.Printf("ERROR: failed to open stats file %s for container %+v: %v", filePath, c, err)

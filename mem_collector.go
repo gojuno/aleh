@@ -30,7 +30,7 @@ func (ms *memStatCollector) Collect(ch chan<- prometheus.Metric) {
 		wg.Add(1)
 		go func(c container) {
 			defer wg.Done()
-			loadMetric(c, ms.desc, ch)
+			loadMetric(c, c.MemoryStatsPath, ms.desc, ch)
 		}(c)
 	}
 	wg.Wait()
