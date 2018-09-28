@@ -171,16 +171,16 @@ func (m *containerListener) loadContainer(containerID string) {
 		c.Revisions = strings.Join(revisions, " ")
 	}
 
-	c.MemoryStatsPath = append(c.MemoryStatsPath, fmt.Sprintf("/mnt/cgroup/memory/docker/%s/memory.stat", c.ID))
+	c.MemoryStatsPath = append(c.MemoryStatsPath, fmt.Sprintf("/sys/fs/cgroup/memory/docker/%s/memory.stat", c.ID))
 	if ci.HostConfig.CgroupParent != "" {
 		c.MemoryStatsPath = append(c.MemoryStatsPath,
-			fmt.Sprintf("/mnt/cgroup/memory%s/%s/memory.stat", ci.HostConfig.CgroupParent, c.ID))
+			fmt.Sprintf("/sys/fs/cgroup/memory%s/%s/memory.stat", ci.HostConfig.CgroupParent, c.ID))
 	}
 
-	c.CPUStatsPath = append(c.CPUStatsPath, fmt.Sprintf("/mnt/cgroup/cpuacct/docker/%s/cpuacct.stat", c.ID))
+	c.CPUStatsPath = append(c.CPUStatsPath, fmt.Sprintf("/sys/fs/cgroup/cpuacct/docker/%s/cpuacct.stat", c.ID))
 	if ci.HostConfig.CgroupParent != "" {
 		c.MemoryStatsPath = append(c.MemoryStatsPath,
-			fmt.Sprintf("/mnt/cgroup/cpuacct%s/%s/cpuacct.stat", ci.HostConfig.CgroupParent, c.ID))
+			fmt.Sprintf("/sys/fs/cgroup/cpuacct%s/%s/cpuacct.stat", ci.HostConfig.CgroupParent, c.ID))
 	}
 
 	m.mu.Lock()
