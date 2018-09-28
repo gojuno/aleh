@@ -39,12 +39,12 @@ func (m *containerListener) listenEvents() {
 	dockerEventsPath := "http://localhost" + eventsPath
 	req, err := http.NewRequest("GET", dockerEventsPath, nil)
 	if err != nil {
-		log.Printf( "ERROR: failed to build http req for events stream%s: %v", dockerEventsPath, err)
+		log.Printf("ERROR: failed to build http req for events stream%s: %v", dockerEventsPath, err)
 	}
 
 	resp, err := m.httpc.Do(req)
 	if err != nil {
-		log.Printf( "ERROR: failed to do http req to %s: %v", dockerEventsPath, err)
+		log.Printf("ERROR: failed to do http req to %s: %v", dockerEventsPath, err)
 	}
 	defer resp.Body.Close()
 
@@ -71,7 +71,7 @@ func (m *containerListener) httpHandler() http.HandlerFunc {
 		cs := m.aliveContainers()
 		body, err := json.Marshal(cs)
 		if err != nil {
-			log.Printf( "failed to marshal alive containers %+v: %v", cs, err)
+			log.Printf("failed to marshal alive containers %+v: %v", cs, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -179,7 +179,7 @@ func (m *containerListener) loadContainer(containerID string) {
 
 	c.CPUStatsPath = append(c.CPUStatsPath, fmt.Sprintf("/sys/fs/cgroup/cpuacct/docker/%s/cpuacct.stat", c.ID))
 	if ci.HostConfig.CgroupParent != "" {
-		c.MemoryStatsPath = append(c.MemoryStatsPath,
+		c.CPUStatsPath = append(c.CPUStatsPath,
 			fmt.Sprintf("/sys/fs/cgroup/cpuacct%s/%s/cpuacct.stat", ci.HostConfig.CgroupParent, c.ID))
 	}
 
