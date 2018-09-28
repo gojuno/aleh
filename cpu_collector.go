@@ -16,8 +16,8 @@ type cpuStatCollector struct {
 	desc     *prometheus.Desc
 }
 
-func newCPUStatCollector(l *containerListener) *memStatCollector {
-	return &memStatCollector{
+func newCPUStatCollector(l *containerListener) *cpuStatCollector {
+	return &cpuStatCollector{
 		listener: l,
 		desc:     prometheus.NewDesc("aleh_cgroup_cpu_stats", "Container cpu usage ", []string{"who", "service", "container", "container_id", "revisions"}, nil),
 	}
@@ -60,7 +60,7 @@ func loadMetric(c container, files []string, desc *prometheus.Desc, ch chan<- pr
 				log.Printf("ERROR: corrupted stat %q in file %q", metric, filePath)
 				continue
 			}
-			value, err := strconv.Atoi(statValue[1])
+			value, err := strconv.ParseInt(statValue[1], 10, 64)
 			if err != nil {
 				log.Printf("ERROR: corrupted stat %q in file %q cant parse value: %v", metric, filePath, err)
 				continue
