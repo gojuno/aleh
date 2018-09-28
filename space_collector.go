@@ -79,19 +79,19 @@ func (s *spaceCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-var bytesMap = map[string]int{
+var bytesMap = map[string]int64{
 	"MB": 1000000,
 	"GB": 1000000000,
 	"TB": 1000000000000,
 }
 
-func humanReadableToBytes(size string) int {
+func humanReadableToBytes(size string) int64 {
 	strs := strings.Split(size, " ")
-	rawSize, err := strconv.Atoi(strs[0])
+	rawSize, err := strconv.ParseInt(strs[0], 10, 64)
 	if err != nil {
 		log.Printf("ERROR: failed to convert %s to int from raw %s: %v", strs[0], size, err)
 	}
-	multiplier := 1000
+	multiplier := int64(1000)
 	if len(strs) > 1 {
 		if m := bytesMap[strs[1]]; m != 0 {
 			multiplier = m
