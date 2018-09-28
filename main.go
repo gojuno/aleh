@@ -28,10 +28,6 @@ type container struct {
 	CPUStatsPath    []string
 }
 
-var c = config{DockerDaemonSocket: "/var/run/docker.sock",
-	Endpoint: "0.0.0.0:1234",
-}
-
 var configFile = flag.String("c", "config.json", "pass path to config file")
 
 func main() {
