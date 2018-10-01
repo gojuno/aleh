@@ -1,14 +1,14 @@
-package main
+package collectors
 
 import (
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"junolab.net/aleh/httpclient"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -19,35 +19,36 @@ type dockerInfo struct {
 	DriverStatus [][]string `json:"DriverStatus"`
 }
 
-type spaceCollector struct {
+// DockerSpaceCollector reports to prometheus current docker disk space usage.
+type DockerSpaceCollector struct {
 	httpc http.Client
 	descs map[string]*prometheus.Desc
 }
 
-func newSpaceCollector(socketPath string) *spaceCollector {
-	return &spaceCollector{
-		httpc: httpSocketClient(socketPath),
+func NewDockerSpaceCollector(metricPrefix, socketPath string) *DockerSpaceCollector {
+	return &DockerSpaceCollector{
+		httpc: httpclient.SocketClient(socketPath),
 		descs: map[string]*prometheus.Desc{
-			"Data Space Available":         prometheus.NewDesc("yauhen_docker_data_space_available", "Data Space Available", nil, nil),
-			"Metadata Space Available":     prometheus.NewDesc("yauhen_docker_metadata_space_available", "Metadata Space Available", nil, nil),
-			"Thin Pool Minimum Free Space": prometheus.NewDesc("yauhen_docker_thin_pool_minimum_free_space", "Thin Pool Minimum Free Space", nil, nil),
-			"Data Space Used":              prometheus.NewDesc("yauhen_docker_data_space_used", "Data Space Used", nil, nil),
-			"Metadata Space Used":          prometheus.NewDesc("yauhen_docker_metadata_space_used", "Metadata Space Used", nil, nil),
-			"Data Space Total":             prometheus.NewDesc("yauhen_docker_data_space_total", "Data Space Total", nil, nil),
-			"Metadata Space Total":         prometheus.NewDesc("yauhen_docker_metadata_space_total", "Metadata Space Total", nil, nil),
+			"Data Space Available":         prometheus.NewDesc(metricPrefix+"docker_data_space_available", "Data Space Available", nil, nil),
+			"Metadata Space Available":     prometheus.NewDesc(metricPrefix+"docker_metadata_space_available", "Metadata Space Available", nil, nil),
+			"Thin Pool Minimum Free Space": prometheus.NewDesc(metricPrefix+"docker_thin_pool_minimum_free_space", "Thin Pool Minimum Free Space", nil, nil),
+			"Data Space Used":              prometheus.NewDesc(metricPrefix+"docker_data_space_used", "Data Space Used", nil, nil),
+			"Metadata Space Used":          prometheus.NewDesc(metricPrefix+"docker_metadata_space_used", "Metadata Space Used", nil, nil),
+			"Data Space Total":             prometheus.NewDesc(metricPrefix+"docker_data_space_total", "Data Space Total", nil, nil),
+			"Metadata Space Total":         prometheus.NewDesc(metricPrefix+"docker_metadata_space_total", "Metadata Space Total", nil, nil),
 		},
 	}
 }
 
 // Describe prometheus.Collector interface implementation
-func (s *spaceCollector) Describe(ch chan<- *prometheus.Desc) {
+func (s *DockerSpaceCollector) Describe(ch chan<- *prometheus.Desc) {
 	for _, desc := range s.descs {
 		ch <- desc
 	}
 }
 
 // Collect prometheus.Collector interface implementation
-func (s *spaceCollector) Collect(ch chan<- prometheus.Metric) {
+func (s *DockerSpaceCollector) Collect(ch chan<- prometheus.Metric) {
 	dockerInfoPath := "http://localhost" + infoPath
 	resp, err := s.httpc.Get(dockerInfoPath)
 	if err != nil {
@@ -62,7 +63,7 @@ func (s *spaceCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 	di := dockerInfo{}
 	if err := json.Unmarshal(bodyJson, &di); err != nil {
-		log.Printf("ERROR: failed to unmarshall body `%s` from docker info request: %v", err)
+		log.Printf("ERROR: failed to unmarshall body `%s` from docker info request: %v", bodyJson, err)
 		return
 	}
 
@@ -98,14 +99,4 @@ func humanReadableToBytes(size string) int64 {
 		}
 	}
 	return rawSize * multiplier
-}
-
-func httpSocketClient(socketPath string) http.Client {
-	return http.Client{
-		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", socketPath)
-			},
-		},
-	}
 }

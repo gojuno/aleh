@@ -1,8 +1,9 @@
-package main
+package storages
 
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,11 +11,18 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
+	"junolab.net/aleh/httpclient"
 )
 
-const eventsPath = "/events"
+type InmemoryStorage struct {
+	alive map[string]Container
+	mu    sync.RWMutex
+	httpc http.Client
+}
 
-type Event struct {
+type event struct {
 	Message string `json:"message"`
 	Status  string `json:"status"`
 	ID      string `json:"id"`
@@ -22,26 +30,25 @@ type Event struct {
 	Type    string `json:"type"`
 }
 
-type containerListener struct {
-	alive map[string]container
-	mu    sync.RWMutex
-	httpc http.Client
-}
-
-func newListener(socketPath string) *containerListener {
-	return &containerListener{
-		alive: map[string]container{},
-		httpc: httpSocketClient(socketPath),
+func New(ctx context.Context, socketPath string) *InmemoryStorage {
+	inmemoryStorage := &InmemoryStorage{
+		alive: map[string]Container{},
+		httpc: httpclient.SocketClient(socketPath),
 	}
+
+	go inmemoryStorage.listenEvents(ctx)
+
+	return inmemoryStorage
 }
 
-func (m *containerListener) listenEvents() {
-	dockerEventsPath := "http://localhost" + eventsPath
+func (m *InmemoryStorage) listenEvents(ctx context.Context) {
+	dockerEventsPath := "http://localhost" + "/events"
 	req, err := http.NewRequest("GET", dockerEventsPath, nil)
 	if err != nil {
 		log.Printf("ERROR: failed to build http req for events stream%s: %v", dockerEventsPath, err)
 	}
 
+	req = req.WithContext(ctx)
 	resp, err := m.httpc.Do(req)
 	if err != nil {
 		log.Printf("ERROR: failed to do http req to %s: %v", dockerEventsPath, err)
@@ -52,23 +59,27 @@ func (m *containerListener) listenEvents() {
 	scanner.Buffer(make([]byte, 1024), 1024)
 
 	for scanner.Scan() {
+		if ctx.Err() != nil {
+			return
+		}
+
 		chunkBytes := bytes.TrimRight(scanner.Bytes(), "\r\n")
 
 		if scanner.Err() != nil {
 			break
 		}
 
-		e := Event{}
+		e := event{}
 		if err := json.Unmarshal(chunkBytes, &e); err != nil {
 			panic(err.Error())
 		}
-		go m.handleEvent(e)
+		go m.handleEvent(ctx, e)
 	}
 }
 
-func (m *containerListener) httpHandler() http.HandlerFunc {
+func (m *InmemoryStorage) HttpHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cs := m.aliveContainers()
+		cs := m.AliveContainers()
 		body, err := json.Marshal(cs)
 		if err != nil {
 			log.Printf("failed to marshal alive containers %+v: %v", cs, err)
@@ -79,42 +90,42 @@ func (m *containerListener) httpHandler() http.HandlerFunc {
 	}
 }
 
-func (m *containerListener) handleEvent(event Event) {
+func (m *InmemoryStorage) handleEvent(ctx context.Context, event event) {
 	switch event.Status {
 	case "start":
-		m.loadContainer(event.ID)
+		m.loadContainer(ctx, event.ID)
 	case "kill", "die", "stop":
 		m.removeContainer(event.ID)
 	}
 }
 
-type ContainerConfig struct {
+type containerConfig struct {
 	Labels map[string]string `json:"Labels"`
 }
 
-type Network struct {
+type network struct {
 	IPAddress string `json:"IPAddress"`
 }
 
-type NetworkSettings struct {
+type networkSettings struct {
 	// key is "bridge"
-	Networks map[string]Network `json:"Networks"`
+	Networks map[string]network `json:"Networks"`
 }
 
-type HostConfig struct {
+type hostConfig struct {
 	CgroupParent string `json:"CgroupParent"`
 }
 
-type ContainerInfo struct {
+type containerInfo struct {
 	ID              string          `json:"Id"`
-	Config          ContainerConfig `json:"config"`
-	NetworkSettings NetworkSettings `json:"NetworkSettings"`
-	HostConfig      HostConfig      `json:"HostConfig"`
+	Config          containerConfig `json:"config"`
+	NetworkSettings networkSettings `json:"NetworkSettings"`
+	HostConfig      hostConfig      `json:"HostConfig"`
 }
 
-func (m *containerListener) aliveContainers() map[string]container {
+func (m *InmemoryStorage) AliveContainers() map[string]Container {
 	m.mu.RLock()
-	res := make(map[string]container, len(m.alive))
+	res := make(map[string]Container, len(m.alive))
 	for k, v := range m.alive {
 		res[k] = v
 	}
@@ -122,41 +133,64 @@ func (m *containerListener) aliveContainers() map[string]container {
 	return res
 }
 
-func (m *containerListener) removeContainer(containerID string) {
+func (m *InmemoryStorage) removeContainer(containerID string) {
 	m.mu.Lock()
 	delete(m.alive, containerID)
 	m.mu.Unlock()
 }
 
-func (m *containerListener) loadContainer(containerID string) {
-	resp, err := m.httpc.Get(containerUrl(containerID))
+func (m *InmemoryStorage) loadContainer(ctx context.Context, containerID string) {
+
+	info, err := m.load(ctx, containerID)
+	if err != nil {
+		log.Printf("ERROR: failed to load container: %v", err.Error())
+	}
+
+	container := m.parse(containerID, info)
+
+	m.mu.Lock()
+	m.alive[containerID] = container
+	m.mu.Unlock()
+}
+
+func (m *InmemoryStorage) load(ctx context.Context, containerID string) (info containerInfo, err error) {
+	containerJSONPath := "http://localhost/containers/%s/json"
+	req, err := http.NewRequest("GET", fmt.Sprintf(containerJSONPath, containerID), nil)
+	if err != nil {
+		return info, errors.Wrapf(err, "failed to build http req %s", containerJSONPath)
+	}
+
+	req = req.WithContext(ctx)
+	resp, err := m.httpc.Do(req)
 	if err != nil {
 		panic(err.Error())
+		return info, errors.Wrapf(err, "failed to get container %s json", containerID)
 	}
 	defer resp.Body.Close()
 
 	respJson, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err.Error())
+		return info, errors.Wrapf(err, "failed to read container %s json resp body", containerID)
 	}
 
-	ci := ContainerInfo{}
-	if err := json.Unmarshal(respJson, &ci); err != nil {
-		panic(err.Error())
+	if err := json.Unmarshal(respJson, &info); err != nil {
+		return info, errors.Wrapf(err, "failed to unmarshall container %s", containerID)
 	}
 
-	c := container{
+	return info, nil
+}
+
+func (m *InmemoryStorage) parse(containerID string, ci containerInfo) Container {
+	c := Container{
 		ID:        containerID,
-		Container: ci.Config.Labels["com.amazonaws.ecs.container-name"],
+		Container: ci.Config.Labels["com.amazonaws.ecs.Container-name"],
 		Service:   ci.Config.Labels["com.amazonaws.ecs.task-definition-family"],
 		Address:   "172.17.42.1",
 	}
 	c.Ecs = c.Container != "" && c.Service != ""
-
 	if bridge, ok := ci.NetworkSettings.Networks["bridge"]; ok && bridge.IPAddress != "" {
 		c.Address = bridge.IPAddress
 	}
-
 	revisions := []string{}
 	for label, revision := range ci.Config.Labels {
 		if !strings.HasPrefix(label, "net.junolab.revision") {
@@ -170,24 +204,15 @@ func (m *containerListener) loadContainer(containerID string) {
 	if len(revisions) > 0 {
 		c.Revisions = strings.Join(revisions, " ")
 	}
-
 	c.MemoryStatsPath = append(c.MemoryStatsPath, fmt.Sprintf("/mnt/cgroup/memory/docker/%s/memory.stat", c.ID))
 	if ci.HostConfig.CgroupParent != "" {
 		c.MemoryStatsPath = append(c.MemoryStatsPath,
 			fmt.Sprintf("/mnt/cgroup/memory%s/%s/memory.stat", ci.HostConfig.CgroupParent, c.ID))
 	}
-
 	c.CPUStatsPath = append(c.CPUStatsPath, fmt.Sprintf("/mnt/cgroup/cpuacct/docker/%s/cpuacct.stat", c.ID))
 	if ci.HostConfig.CgroupParent != "" {
 		c.CPUStatsPath = append(c.CPUStatsPath,
 			fmt.Sprintf("/mnt/cgroup/cpuacct%s/%s/cpuacct.stat", ci.HostConfig.CgroupParent, c.ID))
 	}
-
-	m.mu.Lock()
-	m.alive[containerID] = c
-	m.mu.Unlock()
-}
-
-func containerUrl(containerID string) string {
-	return fmt.Sprintf("http://localhost/containers/%s/json", containerID)
+	return c
 }

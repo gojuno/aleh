@@ -1,4 +1,4 @@
-package main
+package collectors
 
 import (
 	"bufio"
@@ -8,32 +8,35 @@ import (
 	"strings"
 	"sync"
 
+	"junolab.net/aleh/storages"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type cpuStatCollector struct {
-	listener *containerListener
+// CPUCollector reports to prometheus CPU usage of known alive containers. Data is grabbed from cgroups pseudo cpu stat file.
+type CPUCollector struct {
+	listener *storages.InmemoryStorage
 	desc     *prometheus.Desc
 }
 
-func newCPUStatCollector(l *containerListener) *cpuStatCollector {
-	return &cpuStatCollector{
+func NewCPUCollector(metricPrefix string, l *storages.InmemoryStorage) *CPUCollector {
+	return &CPUCollector{
 		listener: l,
-		desc:     prometheus.NewDesc("aleh_cgroup_cpu_stats", "Container cpu usage ", []string{"who", "service", "container", "container_id", "revisions"}, nil),
+		desc:     prometheus.NewDesc(metricPrefix+"cgroup_cpu_stats", "Container cpu usage ", []string{"who", "service", "Container", "container_id", "revisions"}, nil),
 	}
 }
 
 // Describe prometheus.Collector interface implementation
-func (cs *cpuStatCollector) Describe(ch chan<- *prometheus.Desc) {
+func (cs *CPUCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cs.desc
 }
 
 // Collect prometheus.Collector interface implementation
-func (cs *cpuStatCollector) Collect(ch chan<- prometheus.Metric) {
+func (cs *CPUCollector) Collect(ch chan<- prometheus.Metric) {
 	wg := sync.WaitGroup{}
-	for _, c := range cs.listener.aliveContainers() {
+	for _, c := range cs.listener.AliveContainers() {
 		wg.Add(1)
-		go func(c container) {
+		go func(c storages.Container) {
 			defer wg.Done()
 			loadMetric(c, c.CPUStatsPath, cs.desc, ch)
 		}(c)
@@ -41,11 +44,11 @@ func (cs *cpuStatCollector) Collect(ch chan<- prometheus.Metric) {
 	wg.Wait()
 }
 
-func loadMetric(c container, files []string, desc *prometheus.Desc, ch chan<- prometheus.Metric) {
+func loadMetric(c storages.Container, files []string, desc *prometheus.Desc, ch chan<- prometheus.Metric) {
 	for _, filePath := range files {
 		file, err := os.Open(filePath)
 		if err != nil {
-			log.Printf("ERROR: failed to open stats file %s for container %+v: %v", filePath, c, err)
+			log.Printf("ERROR: failed to open stats file %s for Container %+v: %v", filePath, c, err)
 			continue
 		}
 		defer file.Close()

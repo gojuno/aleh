@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+
+	"junolab.net/aleh/collectors"
+	"junolab.net/aleh/storages"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -15,46 +19,38 @@ import (
 type config struct {
 	DockerDaemonSocket string `json:"docker_daemon_socket"`
 	Endpoint           string `json:"endpoint"`
-}
-
-type container struct {
-	ID              string
-	Ecs             bool
-	Container       string
-	Service         string
-	Address         string
-	Revisions       string
-	MemoryStatsPath []string
-	CPUStatsPath    []string
+	MetricPrefix       string `json:"metric_prefix"`
 }
 
 var configFile = flag.String("c", "config.json", "pass path to config file")
 
 func main() {
 	c := readConfig()
+	log.Printf("starting with config %+v", c)
 
-	listener := newListener(c.DockerDaemonSocket)
-	go listener.listenEvents()
+	ctx := context.Background()
+
+	containerListener := storages.New(ctx, c.DockerDaemonSocket)
 
 	// cpu
-	cpuStatCollector := newCPUStatCollector(listener)
+	cpuStatCollector := collectors.NewCPUCollector(c.MetricPrefix, containerListener)
 	prometheus.MustRegister(cpuStatCollector)
 
 	// mem
-	memStatCollector := newMemStatCollector(listener)
+	memStatCollector := collectors.NewMemCollector(c.MetricPrefix, containerListener)
 	prometheus.MustRegister(memStatCollector)
 
 	// alive
-	aliveCollector := newAliveCollector(listener)
+	aliveCollector := collectors.NewAliveCollector(c.MetricPrefix, containerListener)
 	prometheus.MustRegister(aliveCollector)
 
 	// docker space
-	spaceCollector := newSpaceCollector(c.DockerDaemonSocket)
+	spaceCollector := collectors.NewDockerSpaceCollector(c.MetricPrefix, c.DockerDaemonSocket)
 	prometheus.MustRegister(spaceCollector)
 
 	router := http.NewServeMux()
 	router.Handle("/metrics", promhttp.Handler())
-	router.Handle("/internal", listener.httpHandler())
+	router.Handle("/internal", containerListener.HttpHandler())
 
 	if err := http.ListenAndServe(c.Endpoint, router); err != nil {
 		log.Fatalf("metrics handler failed to connect to %s: %v", c.Endpoint, err)
@@ -76,6 +72,18 @@ func readConfig() config {
 	c := config{}
 	if err := json.Unmarshal(configData, &c); err != nil {
 		log.Fatalf("failed to unmarshal config %s file %s: %v", *configFile, string(configData), err)
+	}
+
+	if c.MetricPrefix == "" {
+		c.MetricPrefix = "aleh_"
+	}
+
+	if c.DockerDaemonSocket == "" {
+		c.DockerDaemonSocket = "/var/run/docker.sock"
+	}
+
+	if c.Endpoint == "" {
+		c.Endpoint = "0.0.0.0:1234"
 	}
 	return c
 }
