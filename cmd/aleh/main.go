@@ -8,70 +8,61 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"junolab.net/aleh/collectors"
-	"junolab.net/aleh/storages"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"junolab.net/aleh"
 )
 
-type config struct {
-	DockerDaemonSocket string `json:"docker_daemon_socket"`
-	Endpoint           string `json:"endpoint"`
-	MetricPrefix       string `json:"metric_prefix"`
-}
-
-var configFile = flag.String("c", "config.json", "pass path to config file")
+var configFile = flag.String("c", "Config.json", "pass path to Config file")
 
 func main() {
 	c := readConfig()
-	log.Printf("starting with config %+v", c)
+	log.Printf("starting with Config %+v", c)
 
 	ctx := context.Background()
 
-	containerListener := storages.New(ctx, c.DockerDaemonSocket)
+	httpServer := &http.Server{
+		Addr:    c.Endpoint,
+		Handler: aleh.New(ctx, c),
+	}
 
-	// cpu
-	cpuStatCollector := collectors.NewCPUCollector(c.MetricPrefix, containerListener)
-	prometheus.MustRegister(cpuStatCollector)
+	go func() {
+		log.Printf("Listening on %s\n", c.Endpoint)
+		if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
 
-	// mem
-	memStatCollector := collectors.NewMemCollector(c.MetricPrefix, containerListener)
-	prometheus.MustRegister(memStatCollector)
+	graceful(ctx, httpServer)
+}
 
-	// alive
-	aliveCollector := collectors.NewAliveCollector(c.MetricPrefix, containerListener)
-	prometheus.MustRegister(aliveCollector)
-
-	// docker space
-	spaceCollector := collectors.NewDockerSpaceCollector(c.MetricPrefix, c.DockerDaemonSocket)
-	prometheus.MustRegister(spaceCollector)
-
-	router := http.NewServeMux()
-	router.Handle("/metrics", promhttp.Handler())
-	router.Handle("/internal", containerListener.HttpHandler())
-
-	if err := http.ListenAndServe(c.Endpoint, router); err != nil {
-		log.Fatalf("metrics handler failed to connect to %s: %v", c.Endpoint, err)
+func graceful(ctx context.Context, httpServer *http.Server) {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Printf("Error: %v\n", err)
+	} else {
+		log.Println("Server stopped")
 	}
 }
 
-func readConfig() config {
+func readConfig() aleh.Config {
 	flag.Parse()
 	cfg, err := os.Open(*configFile)
 	if err != nil {
-		log.Fatalf("failed to open config file %s: %v", *configFile, err)
+		log.Fatalf("failed to open Config file %s: %v", *configFile, err)
 	}
 	defer cfg.Close()
 
 	configData, err := ioutil.ReadAll(cfg)
 	if err != nil {
-		log.Fatalf("failed to read config file %s: %v", *configFile, err)
+		log.Fatalf("failed to read Config file %s: %v", *configFile, err)
 	}
-	c := config{}
+	c := aleh.Config{}
 	if err := json.Unmarshal(configData, &c); err != nil {
-		log.Fatalf("failed to unmarshal config %s file %s: %v", *configFile, string(configData), err)
+		log.Fatalf("failed to unmarshal Config %s file %s: %v", *configFile, string(configData), err)
 	}
 
 	if c.MetricPrefix == "" {
