@@ -17,6 +17,10 @@ type Config struct {
 	MetricPrefix       string `json:"metric_prefix"`
 }
 
+// Server implements net/http.Handler
+// It registers all needed prometheus collectors
+// and handles http GET /metrics for prometheus
+// and http GET /internal for debug purposes
 type Server struct {
 	mux *http.ServeMux
 }
