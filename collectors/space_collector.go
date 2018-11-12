@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/gojuno/aleh/httpclient"
 
@@ -80,23 +80,31 @@ func (s *DockerSpaceCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
+const kb = 1024
+
 var bytesMap = map[string]int64{
-	"MB": 1000000,
-	"GB": 1000000000,
-	"TB": 1000000000000,
+	"kB": kb,
+	"MB": kb * kb,
+	"GB": kb * kb * kb,
+	"TB": kb * kb * kb * kb,
 }
 
+var sizeRegexp = regexp.MustCompile(`([\d.]+)([kMGT]B)$`)
+
 func humanReadableToBytes(size string) int64 {
-	strs := strings.Split(size, " ")
-	rawSize, err := strconv.ParseInt(strs[0], 10, 64)
+	m := sizeRegexp.FindStringSubmatch(size)
+	if len(m) != 3 {
+		log.Printf("ERROR: failed to parse size %s", size)
+	}
+	number, suffix := m[1], m[2]
+
+	rawSize, err := strconv.ParseInt(number, 10, 64)
 	if err != nil {
-		log.Printf("ERROR: failed to convert %s to int from raw %s: %v", strs[0], size, err)
+		log.Printf("ERROR: failed to convert %s to int from raw %s: %v", number, size, err)
 	}
 	multiplier := int64(1000)
-	if len(strs) > 1 {
-		if m := bytesMap[strs[1]]; m != 0 {
-			multiplier = m
-		}
+	if m := bytesMap[suffix]; m != 0 {
+		multiplier = m
 	}
 	return rawSize * multiplier
 }
