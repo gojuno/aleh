@@ -98,7 +98,7 @@ func humanReadableToBytes(size string) int64 {
 	}
 	number, suffix := m[1], m[2]
 
-	rawSize, err := strconv.ParseInt(number, 10, 64)
+	rawSize, err := strconv.ParseFloat(number, 64)
 	if err != nil {
 		log.Printf("ERROR: failed to convert %s to int from raw %s: %v", number, size, err)
 	}
@@ -106,5 +106,5 @@ func humanReadableToBytes(size string) int64 {
 	if m := bytesMap[suffix]; m != 0 {
 		multiplier = m
 	}
-	return rawSize * multiplier
+	return int64(rawSize * float64(multiplier))
 }
