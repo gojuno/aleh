@@ -11,4 +11,5 @@ require (
 	github.com/prometheus/procfs v0.0.0-20180920065004-418d78d0b9a7 // indirect
 	golang.org/x/net v0.0.0-20180926154720-4dfa2610cdf3 // indirect
 	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f // indirect
+	olympos.io/encoding/edn v0.0.0-20180723231152-d2d5b26ce027
 )

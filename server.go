@@ -12,9 +12,9 @@ import (
 )
 
 type Config struct {
-	DockerDaemonSocket string `json:"docker_daemon_socket"`
-	Endpoint           string `json:"endpoint"`
-	MetricPrefix       string `json:"metric_prefix"`
+	DockerDaemonSocket string `edn:"docker_daemon_socket"`
+	Endpoint           string `edn:"endpoint"`
+	MetricPrefix       string `edn:"metric_prefix"`
 }
 
 // Server implements net/http.Handler

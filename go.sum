@@ -18,3 +18,5 @@ golang.org/x/net v0.0.0-20180926154720-4dfa2610cdf3 h1:dgd4x4kJt7G4k4m93AYLzM8Ni
 golang.org/x/net v0.0.0-20180926154720-4dfa2610cdf3/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f h1:wMNYb4v58l5UBM7MYRLPG6ZhfOqbKu7X5eyFl8ZhKvA=
 golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+olympos.io/encoding/edn v0.0.0-20180723231152-d2d5b26ce027 h1:fAjZIUg5FWQa90y2rUgsRDe0SaiVibiwQgK6OIwqYQI=
+olympos.io/encoding/edn v0.0.0-20180723231152-d2d5b26ce027/go.mod h1:5CapXYozlIy2Jy2JyBkyb5Dzcco+ak3v1200qCfbNHI=

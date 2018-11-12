@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"log"
@@ -12,9 +11,10 @@ import (
 	"syscall"
 
 	"junolab.net/aleh"
+	"olympos.io/encoding/edn"
 )
 
-var configFile = flag.String("c", "Config.json", "pass path to Config file")
+var configFile = flag.String("c", "etc/config.edn", "pass path to Config file")
 
 func main() {
 	c := readConfig()
@@ -61,7 +61,8 @@ func readConfig() aleh.Config {
 		log.Fatalf("failed to read Config file %s: %v", *configFile, err)
 	}
 	c := aleh.Config{}
-	if err := json.Unmarshal(configData, &c); err != nil {
+
+	if err := edn.Unmarshal(configData, &c); err != nil {
 		log.Fatalf("failed to unmarshal Config %s file %s: %v", *configFile, string(configData), err)
 	}
 
