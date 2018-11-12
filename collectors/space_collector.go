@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"junolab.net/aleh/httpclient"
+	"github.com/gojuno/aleh/httpclient"
 
 	"github.com/prometheus/client_golang/prometheus"
 )

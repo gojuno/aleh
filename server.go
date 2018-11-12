@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"junolab.net/aleh/collectors"
-	"junolab.net/aleh/storages"
+	"github.com/gojuno/aleh/collectors"
+	"github.com/gojuno/aleh/storages"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

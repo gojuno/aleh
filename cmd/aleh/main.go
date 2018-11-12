@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"junolab.net/aleh"
+	"github.com/gojuno/aleh"
 	"olympos.io/encoding/edn"
 )
 

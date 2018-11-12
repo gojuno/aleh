@@ -2,7 +2,7 @@ package collectors
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"junolab.net/aleh/storages"
+	"github.com/gojuno/aleh/storages"
 )
 
 // AliveCollector reports to prometheus known containers that is alive.

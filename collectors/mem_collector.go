@@ -3,7 +3,7 @@ package collectors
 import (
 	"sync"
 
-	"junolab.net/aleh/storages"
+	"github.com/gojuno/aleh/storages"
 
 	"github.com/prometheus/client_golang/prometheus"
 )

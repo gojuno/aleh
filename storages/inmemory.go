@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"junolab.net/aleh/httpclient"
+	"github.com/gojuno/aleh/httpclient"
 )
 
 type InmemoryStorage struct {
