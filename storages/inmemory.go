@@ -12,14 +12,18 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pkg/errors"
 	"github.com/gojuno/aleh/httpclient"
+	"github.com/pkg/errors"
 )
 
 type InmemoryStorage struct {
 	alive map[string]Container
 	mu    sync.RWMutex
 	httpc http.Client
+}
+
+type containerID struct {
+	ID string `json:"Id"`
 }
 
 type event struct {
@@ -37,8 +41,43 @@ func New(ctx context.Context, socketPath string) *InmemoryStorage {
 	}
 
 	go inmemoryStorage.listenEvents(ctx)
+	go inmemoryStorage.loadContainers(ctx, socketPath)
 
 	return inmemoryStorage
+}
+
+func (m *InmemoryStorage) loadContainers(ctx context.Context, socketPath string) {
+	dockerContainersPath := "http://localhost" + "/containers/json"
+	req, err := http.NewRequest("GET", dockerContainersPath, nil)
+	if err != nil {
+		log.Printf("ERROR: failed to build http req for containers list%s: %v", dockerContainersPath, err)
+		return
+	}
+
+	req = req.WithContext(ctx)
+	resp, err := m.httpc.Do(req)
+	if err != nil {
+		log.Printf("ERROR: failed to do http req to %s: %v", dockerContainersPath, err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("ERROR: failed to read containers/json resp: %v", err)
+		return
+	}
+
+	ids := []containerID{}
+	if err := json.Unmarshal(body, &ids); err != nil {
+		log.Printf("ERROR: failed to unmarshall containers/json body %s: %v", string(body), err)
+		return
+	}
+
+	for _, id := range ids {
+		go func(id string) {
+			m.loadContainer(ctx, id)
+		}(id.ID)
+	}
 }
 
 func (m *InmemoryStorage) listenEvents(ctx context.Context) {

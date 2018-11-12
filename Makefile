@@ -6,7 +6,7 @@ compile:
 	go build -v -i -o bin/aleh cmd/aleh/main.go
 
 run: compile
-	./bin/aleh -c ./etc/config.json
+	./bin/aleh -c ./etc/config.edn
 
 clean:
 	rm -rf bin
