@@ -222,7 +222,7 @@ func (m *InmemoryStorage) load(ctx context.Context, containerID string) (info co
 func (m *InmemoryStorage) parse(containerID string, ci containerInfo) Container {
 	c := Container{
 		ID:        containerID,
-		Container: ci.Config.Labels["com.amazonaws.ecs.Container-name"],
+		Container: ci.Config.Labels["com.amazonaws.ecs.container-name"],
 		Service:   ci.Config.Labels["com.amazonaws.ecs.task-definition-family"],
 		Address:   "172.17.42.1",
 	}
@@ -248,7 +248,6 @@ func (m *InmemoryStorage) parse(containerID string, ci containerInfo) Container 
 		c.MemoryStatsPath = append(c.MemoryStatsPath,
 			fmt.Sprintf("/mnt/cgroup/memory%s/%s/memory.stat", ci.HostConfig.CgroupParent, c.ID))
 	}
-	c.CPUStatsPath = append(c.CPUStatsPath, fmt.Sprintf("/mnt/cgroup/cpuacct/docker/%s/cpuacct.stat", c.ID))
 	if ci.HostConfig.CgroupParent != "" {
 		c.CPUStatsPath = append(c.CPUStatsPath,
 			fmt.Sprintf("/mnt/cgroup/cpuacct%s/%s/cpuacct.stat", ci.HostConfig.CgroupParent, c.ID))
