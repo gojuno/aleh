@@ -22,7 +22,7 @@ type CPUCollector struct {
 func NewCPUCollector(metricPrefix string, l *storages.InmemoryStorage) *CPUCollector {
 	return &CPUCollector{
 		listener: l,
-		desc:     prometheus.NewDesc(metricPrefix+"cgroup_cpu_stats", "Container cpu usage ", []string{"who", "service", "Container", "container_id", "revisions"}, nil),
+		desc:     prometheus.NewDesc(metricPrefix+"cgroup_cpu_stats", "Container cpu usage ", []string{"who", "service", "container", "container_id", "revisions"}, nil),
 	}
 }
 

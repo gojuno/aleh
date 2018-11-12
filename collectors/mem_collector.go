@@ -17,7 +17,7 @@ type MemCollector struct {
 func NewMemCollector(metricPrefix string, l *storages.InmemoryStorage) *MemCollector {
 	return &MemCollector{
 		listener: l,
-		desc:     prometheus.NewDesc(metricPrefix+"cgroup_memory_stats", "Container memory statistic", []string{"stat", "service", "Container", "container_id", "revisions"}, nil),
+		desc:     prometheus.NewDesc(metricPrefix+"cgroup_memory_stats", "Container memory statistic", []string{"stat", "service", "container", "container_id", "revisions"}, nil),
 	}
 }
 
