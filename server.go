@@ -3,6 +3,7 @@ package aleh
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/gojuno/aleh/collectors"
 	"github.com/gojuno/aleh/storages"
@@ -31,8 +32,10 @@ func New(ctx context.Context, c Config) *Server {
 	containerListener := storages.New(ctx, c.DockerDaemonSocket)
 
 	// cpu
-	cpuStatCollector := collectors.NewCPUCollector(c.MetricPrefix, containerListener)
-	prometheus.MustRegister(cpuStatCollector)
+	if v := os.Getenv("CPU_STATS"); v == "true" {
+		cpuStatCollector := collectors.NewCPUCollector(c.MetricPrefix, containerListener)
+		prometheus.MustRegister(cpuStatCollector)
+	}
 
 	// mem
 	memStatCollector := collectors.NewMemCollector(c.MetricPrefix, containerListener)
