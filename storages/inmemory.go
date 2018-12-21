@@ -186,9 +186,12 @@ func (m *InmemoryStorage) loadContainer(ctx context.Context, containerID string)
 	}
 
 	container := m.parse(containerID, info)
+	if container == nil {
+		return
+	}
 
 	m.mu.Lock()
-	m.alive[containerID] = container
+	m.alive[containerID] = *container
 	m.mu.Unlock()
 }
 
@@ -219,14 +222,17 @@ func (m *InmemoryStorage) load(ctx context.Context, containerID string) (info co
 	return info, nil
 }
 
-func (m *InmemoryStorage) parse(containerID string, ci containerInfo) Container {
+func (m *InmemoryStorage) parse(containerID string, ci containerInfo) *Container {
 	c := Container{
 		ID:        containerID,
 		Container: ci.Config.Labels["com.amazonaws.ecs.container-name"],
 		Service:   ci.Config.Labels["com.amazonaws.ecs.task-definition-family"],
 		Address:   "172.17.42.1",
 	}
-	c.Ecs = c.Container != "" && c.Service != ""
+	ecs := c.Container != "" && c.Service != ""
+	if !ecs {
+		return nil
+	}
 	if bridge, ok := ci.NetworkSettings.Networks["bridge"]; ok && bridge.IPAddress != "" {
 		c.Address = bridge.IPAddress
 	}
@@ -252,5 +258,5 @@ func (m *InmemoryStorage) parse(containerID string, ci containerInfo) Container 
 		c.CPUStatsPath = append(c.CPUStatsPath,
 			fmt.Sprintf("/mnt/cgroup/cpuacct%s/%s/cpuacct.stat", ci.HostConfig.CgroupParent, c.ID))
 	}
-	return c
+	return &c
 }
