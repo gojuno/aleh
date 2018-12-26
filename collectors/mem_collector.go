@@ -29,7 +29,7 @@ func (ms *MemCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect prometheus.Collector interface implementation
 func (ms *MemCollector) Collect(ch chan<- prometheus.Metric) {
 	wg := sync.WaitGroup{}
-	for _, c := range ms.listener.AliveContainers() {
+	for _, c := range ms.listener.AliveECSContainers() {
 		wg.Add(1)
 		go func(c storages.Container) {
 			defer wg.Done()

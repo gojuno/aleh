@@ -14,7 +14,7 @@ type AliveCollector struct {
 func NewAliveCollector(metricPrefix string, l *storages.InmemoryStorage) *AliveCollector {
 	return &AliveCollector{
 		listener: l,
-		desc:     prometheus.NewDesc(metricPrefix+"container_running", "Container is alive", []string{"service", "Container", "container_id", "revisions"}, nil),
+		desc:     prometheus.NewDesc(metricPrefix+"container_running", "Container is alive", []string{"service", "container", "container_id", "revisions"}, nil),
 	}
 }
 
@@ -25,7 +25,7 @@ func (ac *AliveCollector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect prometheus.Collector interface implementation
 func (ac *AliveCollector) Collect(ch chan<- prometheus.Metric) {
-	for _, c := range ac.listener.AliveContainers() {
+	for _, c := range ac.listener.AliveECSContainers() {
 		ch <- prometheus.MustNewConstMetric(ac.desc, prometheus.CounterValue, 1.0, c.Service, c.Container, c.ID, c.Revisions)
 	}
 }

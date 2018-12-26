@@ -34,7 +34,7 @@ func (cs *CPUCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect prometheus.Collector interface implementation
 func (cs *CPUCollector) Collect(ch chan<- prometheus.Metric) {
 	wg := sync.WaitGroup{}
-	for _, c := range cs.listener.AliveContainers() {
+	for _, c := range cs.listener.AliveECSContainers() {
 		wg.Add(1)
 		go func(c storages.Container) {
 			defer wg.Done()

@@ -118,7 +118,7 @@ func (m *InmemoryStorage) listenEvents(ctx context.Context) {
 
 func (m *InmemoryStorage) HttpHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cs := m.AliveContainers()
+		cs := m.AliveECSContainers()
 		body, err := json.Marshal(cs)
 		if err != nil {
 			log.Printf("failed to marshal alive containers %+v: %v", cs, err)
@@ -162,11 +162,13 @@ type containerInfo struct {
 	HostConfig      hostConfig      `json:"HostConfig"`
 }
 
-func (m *InmemoryStorage) AliveContainers() map[string]Container {
+func (m *InmemoryStorage) AliveECSContainers() map[string]Container {
 	m.mu.RLock()
 	res := make(map[string]Container, len(m.alive))
 	for k, v := range m.alive {
-		res[k] = v
+		if v.Ecs {
+			res[k] = v
+		}
 	}
 	m.mu.RUnlock()
 	return res
@@ -186,12 +188,9 @@ func (m *InmemoryStorage) loadContainer(ctx context.Context, containerID string)
 	}
 
 	container := m.parse(containerID, info)
-	if container == nil {
-		return
-	}
 
 	m.mu.Lock()
-	m.alive[containerID] = *container
+	m.alive[containerID] = container
 	m.mu.Unlock()
 }
 
@@ -222,17 +221,14 @@ func (m *InmemoryStorage) load(ctx context.Context, containerID string) (info co
 	return info, nil
 }
 
-func (m *InmemoryStorage) parse(containerID string, ci containerInfo) *Container {
+func (m *InmemoryStorage) parse(containerID string, ci containerInfo) Container {
 	c := Container{
 		ID:        containerID,
 		Container: ci.Config.Labels["com.amazonaws.ecs.container-name"],
 		Service:   ci.Config.Labels["com.amazonaws.ecs.task-definition-family"],
 		Address:   "172.17.42.1",
 	}
-	ecs := c.Container != "" && c.Service != ""
-	if !ecs {
-		return nil
-	}
+	c.Ecs = c.Container != "" && c.Service != ""
 	if bridge, ok := ci.NetworkSettings.Networks["bridge"]; ok && bridge.IPAddress != "" {
 		c.Address = bridge.IPAddress
 	}
@@ -258,5 +254,5 @@ func (m *InmemoryStorage) parse(containerID string, ci containerInfo) *Container
 		c.CPUStatsPath = append(c.CPUStatsPath,
 			fmt.Sprintf("/mnt/cgroup/cpuacct%s/%s/cpuacct.stat", ci.HostConfig.CgroupParent, c.ID))
 	}
-	return &c
+	return c
 }
