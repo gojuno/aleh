@@ -48,7 +48,6 @@ func loadMetric(c storages.Container, files []string, desc *prometheus.Desc, ch 
 	for _, filePath := range files {
 		file, err := os.Open(filePath)
 		if err != nil {
-			log.Printf("ERROR: failed to open stats file %s for Container %+v: %v", filePath, c, err)
 			continue
 		}
 		defer file.Close()
