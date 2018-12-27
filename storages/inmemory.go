@@ -93,12 +93,13 @@ func (m *InmemoryStorage) listenEvents(ctx context.Context) {
 		resp, err := m.httpc.Do(req)
 		if err != nil {
 			log.Printf("ERROR: failed to do http req to %s: %v", dockerEventsPath, err)
+			continue
 		}
-		defer resp.Body.Close()
 
 		scanner := bufio.NewScanner(resp.Body)
 		scanner.Buffer(make([]byte, 1024), 1024)
 
+		log.Printf("DEBUG: start to read response body")
 		for scanner.Scan() {
 			if ctx.Err() != nil {
 				log.Printf("ERROR: got err from context during reading stream: %v", ctx.Err())
@@ -107,18 +108,18 @@ func (m *InmemoryStorage) listenEvents(ctx context.Context) {
 
 			chunkBytes := bytes.TrimRight(scanner.Bytes(), "\r\n")
 
-			if scanner.Err() != nil {
-				log.Printf("ERROR: stop stream reading. got err from scanner during reading stream: %v", scanner.Err())
-				break
-			}
-
 			e := event{}
 			if err := json.Unmarshal(chunkBytes, &e); err != nil {
-				log.Printf("failed to decode event %s: %v", string(chunkBytes), err.Error())
+				log.Printf("ERROR: failed to decode event %s: %v", string(chunkBytes), err.Error())
 				continue
 			}
 			go m.handleEvent(ctx, e)
 		}
+		log.Printf("DEBUG: finished body reading")
+		if scanner.Err() != nil {
+			log.Printf("ERROR: got err from scanner during reading: %v", scanner.Err())
+		}
+		resp.Body.Close()
 	}
 }
 
