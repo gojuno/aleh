@@ -13,9 +13,10 @@ import (
 )
 
 type Config struct {
-	DockerDaemonSocket string `edn:"docker_daemon_socket"`
-	Endpoint           string `edn:"endpoint"`
-	MetricPrefix       string `edn:"metric_prefix"`
+	DockerDaemonSocket string                            `edn:"docker_daemon_socket"`
+	Endpoint           string                            `edn:"endpoint"`
+	MetricPrefix       string                            `edn:"metric_prefix"`
+	Services           map[string]map[string]interface{} `edn:"services"`
 }
 
 // Server implements net/http.Handler
@@ -42,7 +43,7 @@ func New(ctx context.Context, c Config) *Server {
 	prometheus.MustRegister(memStatCollector)
 
 	// alive
-	aliveCollector := collectors.NewAliveCollector(c.MetricPrefix, containerListener)
+	aliveCollector := collectors.NewAliveCollector(c.MetricPrefix, containerListener, c.Services)
 	prometheus.MustRegister(aliveCollector)
 
 	// docker space
