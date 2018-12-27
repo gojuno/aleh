@@ -81,38 +81,44 @@ func (m *InmemoryStorage) loadContainers(ctx context.Context, socketPath string)
 }
 
 func (m *InmemoryStorage) listenEvents(ctx context.Context) {
-	dockerEventsPath := "http://localhost" + "/events"
-	req, err := http.NewRequest("GET", dockerEventsPath, nil)
-	if err != nil {
-		log.Printf("ERROR: failed to build http req for events stream%s: %v", dockerEventsPath, err)
-	}
-
-	req = req.WithContext(ctx)
-	resp, err := m.httpc.Do(req)
-	if err != nil {
-		log.Printf("ERROR: failed to do http req to %s: %v", dockerEventsPath, err)
-	}
-	defer resp.Body.Close()
-
-	scanner := bufio.NewScanner(resp.Body)
-	scanner.Buffer(make([]byte, 1024), 1024)
-
-	for scanner.Scan() {
-		if ctx.Err() != nil {
-			return
+	for {
+		dockerEventsPath := "http://localhost" + "/events"
+		req, err := http.NewRequest("GET", dockerEventsPath, nil)
+		if err != nil {
+			log.Printf("ERROR: failed to build http req for events stream%s: %v", dockerEventsPath, err)
 		}
 
-		chunkBytes := bytes.TrimRight(scanner.Bytes(), "\r\n")
-
-		if scanner.Err() != nil {
-			break
+		log.Printf("DEBUG: connect to stream %s", dockerEventsPath)
+		req = req.WithContext(ctx)
+		resp, err := m.httpc.Do(req)
+		if err != nil {
+			log.Printf("ERROR: failed to do http req to %s: %v", dockerEventsPath, err)
 		}
+		defer resp.Body.Close()
 
-		e := event{}
-		if err := json.Unmarshal(chunkBytes, &e); err != nil {
-			panic(err.Error())
+		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 1024), 1024)
+
+		for scanner.Scan() {
+			if ctx.Err() != nil {
+				log.Printf("ERROR: got err from context during reading stream: %v", ctx.Err())
+				return
+			}
+
+			chunkBytes := bytes.TrimRight(scanner.Bytes(), "\r\n")
+
+			if scanner.Err() != nil {
+				log.Printf("ERROR: stop stream reading. got err from scanner during reading stream: %v", scanner.Err())
+				break
+			}
+
+			e := event{}
+			if err := json.Unmarshal(chunkBytes, &e); err != nil {
+				log.Printf("failed to decode event %s: %v", string(chunkBytes), err.Error())
+				continue
+			}
+			go m.handleEvent(ctx, e)
 		}
-		go m.handleEvent(ctx, e)
 	}
 }
 
@@ -130,6 +136,7 @@ func (m *InmemoryStorage) HttpHandler() http.HandlerFunc {
 }
 
 func (m *InmemoryStorage) handleEvent(ctx context.Context, event event) {
+	log.Printf("DEBUG: handle event %+v", event)
 	switch event.Status {
 	case "start":
 		m.loadContainer(ctx, event.ID)
