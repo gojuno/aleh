@@ -97,7 +97,6 @@ func (m *InmemoryStorage) listenEvents(ctx context.Context) {
 		}
 
 		scanner := bufio.NewScanner(resp.Body)
-		scanner.Buffer(make([]byte, 1024), 1024)
 
 		log.Printf("DEBUG: start to read response body")
 		for scanner.Scan() {
