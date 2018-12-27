@@ -5,14 +5,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+type ContainerInfo struct {
+	SkipRunning *bool `edn:"skip-running"`
+}
+
 // AliveCollector reports to prometheus known containers that is alive.
 type AliveCollector struct {
 	desc           *prometheus.Desc
 	listener       *storages.InmemoryStorage
-	staticServices map[string]map[string]interface{}
+	staticServices map[string]map[string]ContainerInfo
 }
 
-func NewAliveCollector(metricPrefix string, l *storages.InmemoryStorage, services map[string]map[string]interface{}) *AliveCollector {
+func NewAliveCollector(metricPrefix string, l *storages.InmemoryStorage, services map[string]map[string]ContainerInfo) *AliveCollector {
 	return &AliveCollector{
 		staticServices: services,
 		listener:       l,
@@ -31,8 +35,11 @@ func (ac *AliveCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(ac.desc, prometheus.CounterValue, 1.0, c.Service, c.Container, c.ID, c.Revisions)
 	}
 	for serviceName, v := range ac.staticServices {
-		for containerName, _ := range v {
-			ch <- prometheus.MustNewConstMetric(ac.desc, prometheus.CounterValue, 0, serviceName, containerName, "", "")
+		for containerName, info := range v {
+			if info.SkipRunning == nil || !*info.SkipRunning {
+				ch <- prometheus.MustNewConstMetric(ac.desc, prometheus.CounterValue, 0, serviceName, containerName, "", "")
+			}
+
 		}
 	}
 }

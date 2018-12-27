@@ -13,10 +13,10 @@ import (
 )
 
 type Config struct {
-	DockerDaemonSocket string                            `edn:"docker_daemon_socket"`
-	Endpoint           string                            `edn:"endpoint"`
-	MetricPrefix       string                            `edn:"metric_prefix"`
-	Services           map[string]map[string]interface{} `edn:"services"`
+	DockerDaemonSocket string                                         `edn:"docker_daemon_socket"`
+	Endpoint           string                                         `edn:"endpoint"`
+	MetricPrefix       string                                         `edn:"metric_prefix"`
+	Services           map[string]map[string]collectors.ContainerInfo `edn:"services"`
 }
 
 // Server implements net/http.Handler
