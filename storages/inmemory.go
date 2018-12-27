@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 
@@ -250,6 +251,7 @@ func (m *InmemoryStorage) parse(containerID string, ci containerInfo) Container 
 		revisions = append(revisions, revisionName+"="+revision)
 	}
 	if len(revisions) > 0 {
+		sort.Strings(revisions)
 		c.Revisions = strings.Join(revisions, " ")
 	}
 	c.MemoryStatsPath = append(c.MemoryStatsPath, fmt.Sprintf("/mnt/cgroup/memory/docker/%s/memory.stat", c.ID))
