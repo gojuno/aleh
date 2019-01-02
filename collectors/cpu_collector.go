@@ -13,6 +13,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const (
+	nanosecondsInSecond = 1000000000
+	// The value comes from `C.sysconf(C._SC_CLK_TCK)`, and
+	// on Linux it's a constant which is safe to be hard coded,
+	// so we can avoid using cgo here.
+	clockTicks    = 100
+	cpuMultiplier = clockTicks / nanosecondsInSecond
+)
+
 // CPUCollector reports to prometheus CPU usage of known alive containers. Data is grabbed from cgroups pseudo cpu stat file.
 type CPUCollector struct {
 	listener *storages.InmemoryStorage
@@ -22,7 +31,7 @@ type CPUCollector struct {
 func NewCPUCollector(metricPrefix string, l *storages.InmemoryStorage) *CPUCollector {
 	return &CPUCollector{
 		listener: l,
-		desc:     prometheus.NewDesc(metricPrefix+"cgroup_cpu_stats", "Container cpu usage ", []string{"who", "service", "container", "container_id", "revisions"}, nil),
+		desc:     prometheus.NewDesc(metricPrefix+"cgroup_cpu_stats", "Container cpu usage percent", []string{"who", "service", "container", "container_id", "revisions"}, nil),
 	}
 }
 
@@ -62,12 +71,12 @@ func loadMetric(c storages.Container, files []string, desc *prometheus.Desc, ch 
 				log.Printf("ERROR: corrupted stat %q in file %q", metric, filePath)
 				continue
 			}
-			value, err := strconv.ParseInt(statValue[1], 10, 64)
+			value, err := strconv.ParseUint(statValue[1], 10, 64)
 			if err != nil {
 				log.Printf("ERROR: corrupted stat %q in file %q cant parse value: %v", metric, filePath, err)
 				continue
 			}
-			ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(value), statValue[0], c.Service, c.Container, c.ID, c.Revisions)
+			ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(value*cpuMultiplier), statValue[0], c.Service, c.Container, c.ID, c.Revisions)
 		}
 	}
 }
