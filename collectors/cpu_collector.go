@@ -76,7 +76,7 @@ func loadMetric(c storages.Container, files []string, desc *prometheus.Desc, ch 
 				log.Printf("ERROR: corrupted stat %q in file %q cant parse value: %v", metric, filePath, err)
 				continue
 			}
-			ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(value*cpuMultiplier), statValue[0], c.Service, c.Container, c.ID, c.Revisions)
+			ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(value), statValue[0], c.Service, c.Container, c.ID, c.Revisions)
 		}
 	}
 }
