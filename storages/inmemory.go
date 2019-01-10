@@ -212,8 +212,7 @@ func (m *InmemoryStorage) load(ctx context.Context, containerID string) (info co
 	req = req.WithContext(ctx)
 	resp, err := m.httpc.Do(req)
 	if err != nil {
-		panic(err.Error())
-		return info, errors.Wrapf(err, "failed to get container %s json", containerID)
+		panic(errors.Wrapf(err, "failed to get container %s json", containerID))
 	}
 	defer resp.Body.Close()
 
