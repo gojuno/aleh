@@ -24,14 +24,14 @@ const (
 
 // CPUCollector reports to prometheus CPU usage of known alive containers. Data is grabbed from cgroups pseudo cpu stat file.
 type CPUCollector struct {
-	listener *storages.InmemoryStorage
-	desc     *prometheus.Desc
+	storage *storages.InmemoryStorage
+	desc    *prometheus.Desc
 }
 
 func NewCPUCollector(metricPrefix string, l *storages.InmemoryStorage) *CPUCollector {
 	return &CPUCollector{
-		listener: l,
-		desc:     prometheus.NewDesc(metricPrefix+"cgroup_cpu_stats", "Container cpu usage percent", []string{"who", "service", "container", "container_id", "revisions"}, nil),
+		storage: l,
+		desc:    prometheus.NewDesc(metricPrefix+"cgroup_cpu_stats", "Container cpu usage percent", []string{"who", "service", "container", "container_id", "revisions"}, nil),
 	}
 }
 
@@ -43,7 +43,7 @@ func (cs *CPUCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect prometheus.Collector interface implementation
 func (cs *CPUCollector) Collect(ch chan<- prometheus.Metric) {
 	wg := sync.WaitGroup{}
-	for _, c := range cs.listener.AliveECSContainers() {
+	for _, c := range cs.storage.AliveECSContainers() {
 		wg.Add(1)
 		go func(c storages.Container) {
 			defer wg.Done()
