@@ -46,6 +46,10 @@ func New(ctx context.Context, c Config) *Server {
 	aliveCollector := collectors.NewAliveCollector(c.MetricPrefix, containerListener, c.Services)
 	prometheus.MustRegister(aliveCollector)
 
+	// restarts
+	restartCollector := collectors.NewRestartCollector(c.MetricPrefix, containerListener)
+	prometheus.MustRegister(restartCollector)
+
 	// docker space
 	spaceCollector := collectors.NewDockerSpaceCollector(c.MetricPrefix, c.DockerDaemonSocket)
 	prometheus.MustRegister(spaceCollector)

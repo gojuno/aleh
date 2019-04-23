@@ -10,14 +10,14 @@ import (
 
 // MemCollector reports to prometheus memory usage of known alive containers. Data is grabbed from cgroups pseudo memory stat file.
 type MemCollector struct {
-	listener *storages.InmemoryStorage
-	desc     *prometheus.Desc
+	storage *storages.InmemoryStorage
+	desc    *prometheus.Desc
 }
 
 func NewMemCollector(metricPrefix string, l *storages.InmemoryStorage) *MemCollector {
 	return &MemCollector{
-		listener: l,
-		desc:     prometheus.NewDesc(metricPrefix+"cgroup_memory_stats", "Container memory statistic", []string{"stat", "service", "container", "container_id", "revisions"}, nil),
+		storage: l,
+		desc:    prometheus.NewDesc(metricPrefix+"cgroup_memory_stats", "Container memory statistic", []string{"stat", "service", "container", "container_id", "revisions"}, nil),
 	}
 }
 
@@ -29,7 +29,7 @@ func (ms *MemCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect prometheus.Collector interface implementation
 func (ms *MemCollector) Collect(ch chan<- prometheus.Metric) {
 	wg := sync.WaitGroup{}
-	for _, c := range ms.listener.AliveECSContainers() {
+	for _, c := range ms.storage.AliveECSContainers() {
 		wg.Add(1)
 		go func(c storages.Container) {
 			defer wg.Done()

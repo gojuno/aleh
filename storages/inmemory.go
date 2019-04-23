@@ -18,9 +18,10 @@ import (
 )
 
 type InmemoryStorage struct {
-	alive map[string]Container
-	mu    sync.RWMutex
-	httpc http.Client
+	alive     map[string]Container
+	mu        sync.RWMutex
+	httpc     http.Client
+	listeners []chan<- Container
 }
 
 type containerID struct {
@@ -182,6 +183,12 @@ func (m *InmemoryStorage) AliveECSContainers() map[string]Container {
 	return res
 }
 
+func (m *InmemoryStorage) AddContainerListener(l chan<- Container) {
+	m.mu.Lock()
+	m.listeners = append(m.listeners, l)
+	m.mu.Unlock()
+}
+
 func (m *InmemoryStorage) removeContainer(containerID string) {
 	m.mu.Lock()
 	delete(m.alive, containerID)
@@ -200,6 +207,14 @@ func (m *InmemoryStorage) loadContainer(ctx context.Context, containerID string)
 	m.mu.Lock()
 	m.alive[containerID] = container
 	m.mu.Unlock()
+
+	// notify listeners with new container in non blocking way
+	for _, c := range m.listeners {
+		select {
+		case c <- container:
+		default:
+		}
+	}
 }
 
 func (m *InmemoryStorage) load(ctx context.Context, containerID string) (info containerInfo, err error) {
